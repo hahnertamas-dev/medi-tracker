@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medication & Symptom Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                        teal: {
+                            600: '#0d9488',
+                            700: '#0f766e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Alpine.js CDN for reactivity -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body x-data="medApp()" :class="{ 'dark': darkMode }" class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+    <!-- Header -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
+                    💊
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 dark:text-white leading-tight">MedTrack & Health Log</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400" x-text="formattedDate"></p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- Dark / Light Mode Toggle -->
+                <button @click="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition" title="Toggle Theme">
+                    <svg x-show="!darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    <svg x-show="darkMode" class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                </button>
+
+                <!-- Quick Action Button -->
+                <button @click="activeTab = 'meds'; openAddMedModal = true" class="hidden sm:inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow transition">
+                    + Add Medication
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-xs no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-8 overflow-x-auto">
+            <button @click="activeTab = 'today'" :class="activeTab === 'today' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'" class="py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition">
+                📅 Today's Schedule
+            </button>
+            <button @click="activeTab = 'meds'" :class="activeTab === 'meds' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'" class="py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition">
+                📋 Medications & Inventory
+            </button>
+            <button @click="activeTab = 'symptoms'" :class="activeTab === 'symptoms' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'" class="py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition">
+                🩺 Symptom Journal
+            </button>
+            <button @click="activeTab = 'report'" :class="activeTab === 'report' ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'" class="py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition">
+                📄 Doctor Visit Summary
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- ================= TAB 1: TODAY'S SCHEDULE ================= -->
+        <div x-show="activeTab === 'today'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Daily Dose Checklist</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Mark your medicines as taken or skipped for today.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <input type="date" x-model="selectedDate" class="px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                </div>
+            </div>
+
+            <!-- Doses List -->
+            <div class="grid gap-4">
+                <template x-for="med in medications" :key="med.id">
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-start space-x-4">
+                            <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 text-xl">
+                                💊
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900 dark:text-white text-base" x-text="med.name"></h3>
+                                <p class="text-sm text-slate-500 dark:text-slate-400">
+                                    <span class="font-medium text-slate-700 dark:text-slate-300" x-text="med.dosage"></span> • 
+                                    <span x-text="med.time"></span>
+                                </p>
+                                <p class="text-xs text-amber-600 dark:text-amber-400 mt-1" x-show="med.instructions" x-text="med.instructions"></p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 self-end sm:self-center">
+                            <button @click="logStatus(med.id, 'taken')" 
+                                :class="getLogStatus(med.id) === 'taken' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-emerald-50 hover:text-emerald-600'"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                                ✓ Taken
+                            </button>
+                            <button @click="logStatus(med.id, 'skipped')" 
+                                :class="getLogStatus(med.id) === 'skipped' ? 'bg-rose-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-600'"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                                ✕ Skip
+                            </button>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="medications.length === 0" class="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <p class="text-slate-500 dark:text-slate-400 mb-4">No medications added yet.</p>
+                    <button @click="activeTab = 'meds'; openAddMedModal = true" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium">Add Your First Medication</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: MEDICATIONS & INVENTORY ================= -->
+        <div x-show="activeTab === 'meds'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Medication Inventory</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Manage prescriptions, schedules, and pill supplies.</p>
+                </div>
+                <button @click="openAddMedModal = true; editingMed = null; resetMedForm()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow transition">
+                    + Add New Medication
+                </button>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <template x-for="med in medications" :key="med.id">
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-md" x-text="med.time"></span>
+                                <div class="space-x-1">
+                                    <button @click="editMedication(med)" class="text-slate-400 hover:text-emerald-600 text-sm p-1">✏️</button>
+                                    <button @click="deleteMedication(med.id)" class="text-slate-400 hover:text-rose-600 text-sm p-1">🗑️</button>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-white" x-text="med.name"></h3>
+                            <p class="text-sm text-emerald-600 dark:text-emerald-400 font-medium mb-3" x-text="med.dosage"></p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 p-2.5 rounded-lg mb-4" x-text="med.instructions || 'No special instructions'"></p>
+                        </div>
+                        <div class="pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-slate-500">
+                            <span>Remaining Supply: <strong class="text-slate-800 dark:text-slate-200" x-text="med.supply || 'N/A'"></strong></span>
+                            <button @click="refillSupply(med.id)" class="text-emerald-600 dark:text-emerald-400 font-medium hover:underline">+ Refill</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: SYMPTOM JOURNAL ================= -->
+        <div x-show="activeTab === 'symptoms'" class="space-y-6">
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-1">Daily Symptom & Acid Reflux Journal</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Log daily discomfort, acid issues, or symptoms to share with your doctor.</p>
+
+                <form @submit.prevent="saveSymptomLog()" class="space-y-4">
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Date</label>
+                            <input type="date" x-model="currentSymptom.date" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Overall Severity (1 - 10)</label>
+                            <input type="range" min="1" max="10" x-model="currentSymptom.severity" class="w-full accent-emerald-600">
+                            <div class="flex justify-between text-xs text-slate-400">
+                                <span>Mild (1)</span>
+                                <span class="font-bold text-emerald-600" x-text="currentSymptom.severity"></span>
+                                <span>Severe (10)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Symptoms Experienced (Acid reflux, bloating, pain, etc.)</label>
+                        <input type="text" x-model="currentSymptom.tags" placeholder="e.g., Mild heartburn after lunch, upper abdominal discomfort" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Notes & Triggers</label>
+                        <textarea x-model="currentSymptom.notes" rows="3" placeholder="What did you eat? Did anything help relieve it?" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm"></textarea>
+                    </div>
+                    <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm rounded-lg shadow transition">Save Symptom Log</button>
+                </form>
+            </div>
+
+            <!-- History Logs -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Past Symptom Logs</h3>
+                <div class="space-y-3">
+                    <template x-for="log in symptomLogs" :key="log.id">
+                        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 flex flex-col sm:flex-row justify-between gap-2">
+                            <div>
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded" x-text="log.date"></span>
+                                    <span class="text-xs font-medium text-rose-600 dark:text-rose-400">Severity: <strong x-text="log.severity"></strong>/10</span>
+                                </div>
+                                <p class="text-sm font-semibold text-slate-800 dark:text-slate-200" x-text="log.tags"></p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" x-text="log.notes"></p>
+                            </div>
+                            <button @click="deleteSymptomLog(log.id)" class="text-slate-400 hover:text-rose-600 text-sm self-start sm:self-center">🗑️</button>
+                        </div>
+                    </template>
+                    <div x-show="symptomLogs.length === 0" class="text-center py-6 text-slate-400 text-sm">No symptom logs recorded yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 4: DOCTOR VISIT SUMMARY ================= -->
+        <div x-show="activeTab === 'report'" class="space-y-6">
+            <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 print:shadow-none print:border-none">
+                <div class="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-6 mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Doctor Visit Summary Report</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Generated for your upcoming consultation & diagnostic tests.</p>
+                    </div>
+                    <button onclick="window.print()" class="no-print px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg shadow transition">
+                        🖨️ Print / Save PDF
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-3">Active Medications</h3>
+                        <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead class="bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                    <tr>
+                                        <th class="p-3">Medication</th>
+                                        <th class="p-3">Dosage</th>
+                                        <th class="p-3">Schedule</th>
+                                        <th class="p-3">Instructions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                                    <template x-for="med in medications" :key="med.id">
+                                        <tr>
+                                            <td class="p-3 font-medium text-slate-900 dark:text-white" x-text="med.name"></td>
+                                            <td class="p-3 text-slate-600 dark:text-slate-300" x-text="med.dosage"></td>
+                                            <td class="p-3 text-slate-600 dark:text-slate-300" x-text="med.time"></td>
+                                            <td class="p-3 text-slate-500 dark:text-slate-400 text-xs" x-text="med.instructions || 'None'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-3">Recent Symptom Log Summary</h3>
+                        <div class="space-y-2">
+                            <template x-for="log in symptomLogs.slice(0, 5)" :key="log.id">
+                                <div class="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-lg border border-slate-200 dark:border-slate-700 text-sm">
+                                    <span class="font-semibold text-slate-900 dark:text-white" x-text="log.date"></span> — 
+                                    <span class="text-rose-600 dark:text-rose-400 font-medium">Severity <span x-text="log.severity"></span>/10</span>: 
+                                    <span class="text-slate-700 dark:text-slate-300" x-text="log.tags"></span>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" x-text="log.notes"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Add / Edit Medication -->
+    <div x-show="openAddMedModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4" style="display: none;">
+        <div @click.away="openAddMedModal = false" class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 dark:border-slate-700">
+            <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-4" x-text="editingMed ? 'Edit Medication' : 'Add Medication'"></h3>
+            
+            <form @submit.prevent="saveMedication()" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Medication Name</label>
+                    <input type="text" x-model="medForm.name" required placeholder="e.g., Omeprazole" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Dosage</label>
+                        <input type="text" x-model="medForm.dosage" required placeholder="e.g., 20mg" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Time / Schedule</label>
+                        <input type="text" x-model="medForm.time" required placeholder="e.g., Morning (Before Breakfast)" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Initial Supply Count</label>
+                        <input type="number" x-model="medForm.supply" placeholder="e.g., 30" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Special Instructions</label>
+                    <input type="text" x-model="medForm.instructions" placeholder="e.g., Take 30 mins before first meal" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <button type="button" @click="openAddMedModal = false" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium">Save Medication</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alpine.js Application Logic -->
+    <script>
+        function getLocalDateString() {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function medApp() {
+            return {
+                activeTab: 'today',
+                darkMode: localStorage.getItem('theme') === 'dark',
+                selectedDate: getLocalDateString(),
+                openAddMedModal: false,
+                editingMed: null,
+                
+                medForm: { name: '', dosage: '', time: 'Morning', supply: 30, instructions: '' },
+                currentSymptom: { date: getLocalDateString(), severity: 3, tags: '', notes: '' },
+
+                medications: JSON.parse(localStorage.getItem('meds_list')) || [
+                    { id: '1', name: 'Omeprazole', dosage: '20mg', time: 'Morning', supply: 28, instructions: 'Take 30 minutes before breakfast' }
+                ],
+                
+                doseLogs: JSON.parse(localStorage.getItem('dose_logs')) || {},
+                symptomLogs: JSON.parse(localStorage.getItem('symptom_logs')) || [],
+
+                init() {
+                    if (this.darkMode) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                },
+
+                toggleDarkMode() {
+                    this.darkMode = !this.darkMode;
+                    localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
+                    if (this.darkMode) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                },
+
+                get formattedDate() {
+                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                    return new Date().toLocaleDateString(undefined, options);
+                },
+
+                saveMedication() {
+                    if (this.editingMed) {
+                        const index = this.medications.findIndex(m => m.id === this.editingMed);
+                        if (index !== -1) {
+                            this.medications[index] = { ...this.medForm, id: this.editingMed };
+                        }
+                    } else {
+                        const newMed = { ...this.medForm, id: Date.now().toString() };
+                        this.medications.push(newMed);
+                    }
+                    this.saveMedsStorage();
+                    this.openAddMedModal = false;
+                    this.resetMedForm();
+                },
+
+                editMedication(med) {
+                    this.editingMed = med.id;
+                    this.medForm = { ...med };
+                    this.openAddMedModal = true;
+                },
+
+                deleteMedication(id) {
+                    if (confirm('Are you sure you want to delete this medication?')) {
+                        this.medications = this.medications.filter(m => m.id !== id);
+                        this.saveMedsStorage();
+                    }
+                },
+
+                resetMedForm() {
+                    this.editingMed = null;
+                    this.medForm = { name: '', dosage: '', time: 'Morning', supply: 30, instructions: '' };
+                },
+
+                refillSupply(id) {
+                    const med = this.medications.find(m => m.id === id);
+                    if (med) {
+                        const added = prompt(`Add how many pills to ${med.name}?`, '30');
+                        if (added && !isNaN(added)) {
+                            med.supply = Number(med.supply || 0) + Number(added);
+                            this.saveMedsStorage();
+                        }
+                    }
+                },
+
+                saveMedsStorage() {
+                    localStorage.setItem('meds_list', JSON.stringify(this.medications));
+                },
+
+                logStatus(medId, status) {
+                    if (!this.doseLogs[this.selectedDate]) {
+                        this.doseLogs[this.selectedDate] = {};
+                    }
+                    if (this.doseLogs[this.selectedDate][medId] === status) {
+                        delete this.doseLogs[this.selectedDate][medId];
+                    } else {
+                        this.doseLogs[this.selectedDate][medId] = status;
+                        if (status === 'taken') {
+                            const med = this.medications.find(m => m.id === medId);
+                            if (med && med.supply > 0) med.supply--;
+                            this.saveMedsStorage();
+                        }
+                    }
+                    localStorage.setItem('dose_logs', JSON.stringify(this.doseLogs));
+                },
+
+                getLogStatus(medId) {
+                    return this.doseLogs[this.selectedDate]?.[medId] || null;
+                },
+
+                saveSymptomLog() {
+                    const newLog = { ...this.currentSymptom, id: Date.now().toString() };
+                    this.symptomLogs.unshift(newLog);
+                    localStorage.setItem('symptom_logs', JSON.stringify(this.symptomLogs));
+                    this.currentSymptom = { date: getLocalDateString(), severity: 3, tags: '', notes: '' };
+                    alert('Symptom log saved successfully!');
+                },
+
+                deleteSymptomLog(id) {
+                    if (confirm('Delete this symptom log entry?')) {
+                        this.symptomLogs = this.symptomLogs.filter(s => s.id !== id);
+                        localStorage.setItem('symptom_logs', JSON.stringify(this.symptomLogs));
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
